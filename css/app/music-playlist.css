@@ -153,6 +153,7 @@
 #smart-playlist-info a {
 	margin-inline-start: 8px;
 	text-decoration: underline;
+	white-space: nowrap;
 }
 
 #smart-playlist-info .icon-loading-small {

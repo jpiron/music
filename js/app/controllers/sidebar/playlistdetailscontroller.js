@@ -74,12 +74,25 @@ angular.module('Music').controller('PlaylistDetailsController', [
 			}
 		});
 
+		// same texts as for the track ordering in the Advanced search view
+		const orderTexts = {
+			name:			gettextCatalog.getString('by name'),
+			parent:			gettextCatalog.getString('by artist'),
+			newest:			gettextCatalog.getString('by time added'),
+			play_count:		gettextCatalog.getString('by play count'),
+			last_played:	gettextCatalog.getString('by recent play'),
+			rating:			gettextCatalog.getString('by rating'),
+			random:			gettextCatalog.getString('randomly'),
+		};
+
 		$scope.smartCriteriaSummary = function() {
 			const criteria = $scope.playlist.smart.criteria;
 			const parts = [
 				(criteria.conjunction == 'or') ? gettextCatalog.getString('Matching any rule') : gettextCatalog.getString('Matching all rules'),
-				gettextCatalog.getString('order: {{ order }}', { order: criteria.order }),
-				criteria.limit ? gettextCatalog.getString('limit: {{ limit }}', { limit: criteria.limit }) : gettextCatalog.getString('unlimited')
+				orderTexts[criteria.order] ?? criteria.order,
+				criteria.limit
+					? gettextCatalog.getPlural(criteria.limit, 'at most {{ count }} track', 'at most {{ count }} tracks', { count: criteria.limit })
+					: gettextCatalog.getString('unlimited')
 			];
 			return parts.join(', ');
 		};
