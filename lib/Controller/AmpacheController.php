@@ -60,6 +60,7 @@ use OCA\Music\Service\FileSystemService;
 use OCA\Music\Service\LastfmService;
 use OCA\Music\Service\LibrarySettings;
 use OCA\Music\Service\PodcastService;
+use OCA\Music\Service\SmartListService;
 use OCA\Music\Service\RadioService;
 use OCA\Music\Service\Scrobbling\IScrobbler;
 use OCA\Music\Service\StreamTokenService;
@@ -134,6 +135,7 @@ class AmpacheController extends ApiController {
 		private TrackBusinessLayer $trackBusinessLayer,
 		private Library $library,
 		private PodcastService $podcastService,
+		private SmartListService $smartListService,
 		private AmpacheAdvSearch $advSearchService,
 		private AmpacheImageService $imageService,
 		private CoverService $coverService,
@@ -787,13 +789,22 @@ class AmpacheController extends ApiController {
 			bool $exact = false, bool $hide_search = false, bool $include = false) : array {
 
 		$userId = $this->userId();
-		$playlists = $this->findEntities($this->playlistBusinessLayer, $filter, $exact, $limit, $offset, $add, $update);
 
-		// append "All tracks" if "searches" are not forbidden, and not filtering by any criteria, and it is not off-limits
-		$allTracksIndex = $this->playlistBusinessLayer->count($userId);
-		if (!$hide_search && empty($filter) && empty($add) && empty($update)
-				&& self::indexIsWithinOffsetAndLimit($allTracksIndex, $offset, $limit)) {
-			$playlists[] = $this->getAllTracksPlaylist();
+		if ($hide_search) {
+			// the smart lists are "searches" and need to be filtered out before applying the paging
+			$playlists = $this->findEntities($this->playlistBusinessLayer, $filter, $exact, null, null, $add, $update);
+			$this->smartListService->injectSmartLists($playlists, $userId, /*refreshStale=*/false);
+			$playlists = \array_values(\array_filter($playlists, fn ($p) => !$p->isSmart()));
+			$playlists = \array_slice($playlists, $offset, $limit);
+		} else {
+			$playlists = $this->findEntities($this->playlistBusinessLayer, $filter, $exact, $limit, $offset, $add, $update);
+
+			// append "All tracks" if not filtering by any criteria, and it is not off-limits
+			$allTracksIndex = $this->playlistBusinessLayer->count($userId);
+			if (empty($filter) && empty($add) && empty($update)
+					&& self::indexIsWithinOffsetAndLimit($allTracksIndex, $offset, $limit)) {
+				$playlists[] = $this->getAllTracksPlaylist();
+			}
 		}
 
 		return $this->renderPlaylists($playlists, $include);
@@ -808,18 +819,21 @@ class AmpacheController extends ApiController {
 
 	#[AmpacheAPI]
 	protected function user_smartlists(bool $include = false) : array {
-		// the only "smart list" currently supported is "All tracks", hence supporting any kind of filtering criteria
-		// isn't worthwhile
-		return $this->renderPlaylists([$this->getAllTracksPlaylist()], $include);
+		// the user-defined smart lists and the "All tracks" list
+		$userId = $this->userId();
+		$playlists = $this->playlistBusinessLayer->findAll($userId);
+		$this->smartListService->injectSmartLists($playlists, $userId, /*refreshStale=*/false);
+		$smartLists = \array_values(\array_filter($playlists, fn ($p) => $p->isSmart()));
+		$smartLists[] = $this->getAllTracksPlaylist();
+		return $this->renderPlaylists($smartLists, $include);
 	}
 
 	#[AmpacheAPI]
 	protected function playlist(int $filter, bool $include = false) : array {
-		$userId = $this->userId();
 		if ($filter == self::ALL_TRACKS_PLAYLIST_ID) {
 			$playlist = $this->getAllTracksPlaylist();
 		} else {
-			$playlist = $this->playlistBusinessLayer->find($filter, $userId);
+			$playlist = $this->playlistBusinessLayer->find($filter, $this->userId());
 		}
 		return $this->renderPlaylists([$playlist], $include);
 	}
@@ -829,7 +843,7 @@ class AmpacheController extends ApiController {
 		if ($filter == self::ALL_TRACKS_PLAYLIST_ID) {
 			$playlist = $this->getAllTracksPlaylist();
 		} else {
-			$playlist = $this->playlistBusinessLayer->find($filter, $this->userId());
+			$playlist = $this->findPlaylist($filter);
 		}
 		return [ 'md5' => $playlist->getTrackIdsHash() ];
 	}
@@ -853,6 +867,7 @@ class AmpacheController extends ApiController {
 				$track->setNumberOnPlaylist($index + 1);
 			}
 		} else {
+			$this->findPlaylist($filter); // refreshes the content if this is a stale smart list
 			$tracks = $this->playlistBusinessLayer->getPlaylistTracks($filter, $userId, $limit, $offset);
 		}
 
@@ -1605,7 +1620,7 @@ class AmpacheController extends ApiController {
 			} elseif ($type === 'playlist') {
 				$songIds = ($id === self::ALL_TRACKS_PLAYLIST_ID)
 					? $this->trackBusinessLayer->findAllIds($userId)
-					: $this->playlistBusinessLayer->find($id, $userId)->getTrackIdsAsArray();
+					: $this->findPlaylist($id)->getTrackIdsAsArray();
 				$randomId = Random::pickItem($songIds);
 				if ($randomId === null) {
 					return new ErrorResponse(Http::STATUS_NOT_FOUND, "The playlist $id is empty");
@@ -1748,6 +1763,16 @@ class AmpacheController extends ApiController {
 		}
 	}
 
+	/**
+	 * Find a playlist of the user, refreshing the content first if it is a stale smart list
+	 * @throws BusinessLayerException if not found
+	 */
+	private function findPlaylist(int $id) : Playlist {
+		$userId = $this->userId();
+		$playlist = $this->playlistBusinessLayer->find($id, $userId);
+		return $this->smartListService->injectSmartListToPlaylist($playlist, $userId);
+	}
+
 	private function trackIdsForEntity(int $id, string $type) : array {
 		$userId = $this->userId();
 		switch ($type) {
@@ -1758,7 +1783,7 @@ class AmpacheController extends ApiController {
 			case 'artist':
 				return ArrayUtil::extractIds($this->trackBusinessLayer->findAllByArtist($id, $userId));
 			case 'playlist':
-				return $this->playlistBusinessLayer->find($id, $userId)->getTrackIdsAsArray();
+				return $this->findPlaylist($id)->getTrackIdsAsArray();
 			default:
 				throw new AmpacheException("Unsupported type $type", 400);
 		}
@@ -2061,6 +2086,8 @@ class AmpacheController extends ApiController {
 	 * @param Playlist[] $playlists
 	 */
 	private function renderPlaylists(array $playlists, bool $includeTracks = false) : array {
+		$this->smartListService->injectSmartLists($playlists, $this->userId());
+
 		$createImageUrl = function (Playlist $playlist) : string {
 			if ($playlist->getId() === self::ALL_TRACKS_PLAYLIST_ID) {
 				return '';

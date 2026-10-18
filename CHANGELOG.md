@@ -1,3 +1,18 @@
+## [Unreleased]
+
+### Added
+- Smart playlists which keep themselves up to date
+  [#76](https://github.com/nc-music/music/issues/76) [#105](https://github.com/nc-music/music/issues/105):
+  * Created from the results of an advanced search for tracks with the new action "Save as smart playlist"
+  * The search criteria (rules, conjunction, ordering, and limit) are stored and the content is re-evaluated when it gets stale,
+    either on access or by a background job, or on user request from the playlist view, navigation menu, or details pane
+  * The refresh interval defaults to 60 minutes and can be configured with the config.php key `music.smartlist_refresh_interval`
+    (in minutes, 0 or negative to refresh only manually by default); each smart playlist may override it
+  * With the random ordering, a new random selection is made on each refresh
+  * The criteria can be edited in the Advanced search view and a smart playlist can be converted to a normal playlist
+  * The content of a smart playlist can't be modified manually; this is reflected also in the Ampache API (`has_access=false`,
+    listed in `user_smartlists` but not in `user_playlists`) and the Subsonic API (OpenSubsonic properties `readonly` and `validUntil`)
+
 ## 3.2.1 - 2026-08-31
 
 ### Fixed

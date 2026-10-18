@@ -15,6 +15,7 @@
 namespace OCA\Music\Middleware;
 
 use OCA\Music\AppFramework\BusinessLayer\BusinessLayerException;
+use OCA\Music\AppFramework\BusinessLayer\ReadOnlyException;
 use OCA\Music\AppFramework\Core\Logger;
 use OCA\Music\Controller\AmpacheController;
 use OCA\Music\Db\AmpacheSession;
@@ -268,6 +269,8 @@ class AmpacheMiddleware extends Middleware {
 		if ($controller instanceof AmpacheController) {
 			if ($exception instanceof AmpacheException) {
 				return $controller->ampacheErrorResponse($exception->getCode(), $exception->getMessage());
+			} elseif ($exception instanceof ReadOnlyException) {
+				return $controller->ampacheErrorResponse(412, $exception->getMessage());
 			} elseif ($exception instanceof BusinessLayerException) {
 				return $controller->ampacheErrorResponse(404, 'Entity not found');
 			} elseif ($exception instanceof LibraryFolderException) {

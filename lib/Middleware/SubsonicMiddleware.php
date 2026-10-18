@@ -13,6 +13,7 @@
 namespace OCA\Music\Middleware;
 
 use OCA\Music\AppFramework\BusinessLayer\BusinessLayerException;
+use OCA\Music\AppFramework\BusinessLayer\ReadOnlyException;
 use OCA\Music\AppFramework\Core\Logger;
 use OCA\Music\Controller\SubsonicController;
 use OCA\Music\Db\AmpacheUserMapper;
@@ -168,6 +169,8 @@ class SubsonicMiddleware extends Middleware {
 						$exception->getCode(),
 						$exception->getMessage()
 				);
+			} elseif ($exception instanceof ReadOnlyException) {
+				return $controller->subsonicErrorResponse(50, $exception->getMessage());
 			} elseif ($exception instanceof BusinessLayerException) {
 				return $controller->subsonicErrorResponse(70, 'Entity not found');
 			} elseif ($exception instanceof LibraryFolderException) {

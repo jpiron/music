@@ -74,3 +74,7 @@
 #adv-search-common-parameters select {
 	margin-inline-end: 16px;
 }
+
+#adv-search-smartlist-editing {
+	margin: 0 14px 16px;
+}

@@ -120,6 +120,14 @@ class Maintenance {
 	}
 
 	/**
+	 * Remove smart list definitions which do not have the corresponding playlist
+	 * @return int Number of removed smart list definitions
+	 */
+	private function removeObsoleteSmartLists() : int {
+		return $this->removeUnreferencedDbRows('music_smartlists', 'music_playlists', 'playlist_id', 'id');
+	}
+
+	/**
 	 * Remove tracks which do not have corresponding file in the file system
 	 * @return int Number of removed tracks
 	 */
@@ -234,6 +242,7 @@ class Maintenance {
 			['record_labels',    fn () => $this->removeObsoleteRecordLabels()],
 			['bookmarks',        fn () => $this->removeObsoleteBookmarks()],
 			['podcast_episodes', fn () => $this->removeObsoletePodcastEpisodes()],
+			['smartlists',       fn () => $this->removeObsoleteSmartLists()],
 		];
 
 		return $scanFlagResult + \array_combine(
@@ -272,6 +281,7 @@ class Maintenance {
 			'albums',
 			'artists',
 			'playlists',
+			'smartlists',
 			'genres',
 			'bookmarks',
 			'cache'

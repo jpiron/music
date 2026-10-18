@@ -221,6 +221,30 @@ angular.module('Music').controller('NavigationController', [
 			);
 		};
 
+		// Re-evaluate the criteria of a smart playlist
+		$scope.refreshSmartPlaylist = function(playlist) {
+			playlistService.refreshSmartPlaylist(playlist);
+		};
+
+		// Open the criteria of a smart playlist in the Advanced search view
+		$scope.editSmartPlaylist = function(playlist) {
+			$scope.navigateTo(`#/search?smartlist=${playlist.id}`);
+		};
+
+		// Convert a smart playlist to a normal playlist, keeping its current content
+		$scope.convertToStaticPlaylist = function(playlist) {
+			OC.dialogs.confirm(
+				gettextCatalog.getString('The playlist "{{ name }}" will keep its current tracks but will no longer be updated automatically. Continue?', { name: playlist.name }),
+				gettextCatalog.getString('Convert to normal playlist'),
+				function(confirmed) {
+					if (confirmed) {
+						playlistService.convertToStaticPlaylist(playlist);
+					}
+				},
+				true
+			);
+		};
+
 		// Export playlist to file
 		$scope.exportToFile = function(playlist) {
 			playlistFileService.exportPlaylist(playlist);
@@ -423,6 +447,10 @@ angular.module('Music').controller('NavigationController', [
 		};
 
 		$scope.allowDrop = function(playlist, draggable) {
+			// The content of a smart playlist is defined by its criteria
+			if (playlist.smart) {
+				return false;
+			}
 			// Don't allow dragging a track from a playlist back to the same playlist
 			let isFromPlaylist = ('srcIndex' in draggable);
 			let targetIsCurrentPlaylist = ($scope.getCurrentViewId() == '#/playlist/' + playlist.id);
