@@ -2353,7 +2353,7 @@ msgstr "Modifier les critères"
 #: templates/partials/navigation.php
 #: js/app/controllers/navigationcontroller.js
 msgid "Convert to normal playlist"
-msgstr "Convertir en liste de lecture normale"
+msgstr "Convertir en liste normale"
 
 #: js/app/controllers/navigationcontroller.js
 msgid "The playlist \"{{ name }}\" will keep its current tracks but will no longer be updated automatically. Continue?"
