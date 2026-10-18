@@ -21,6 +21,28 @@
 	width: fit-content;
 }
 
+/* Open the results menu towards the end side from the "…" button with the arrow pointing to the button.
+ * The results title is narrow, and opening the menu towards the start side would hide the beginning of
+ * the menu behind the navigation pane. */
+#app-view #adv-search-area .results-title .heading-actions {
+	inset-inline-start: calc(100% - 34px);
+	inset-inline-end: auto;
+}
+
+#app-view #adv-search-area .results-title .heading-actions::after {
+	inset-inline-start: 7px;
+	inset-inline-end: auto;
+}
+
+/* On mobile, there is not enough space after the button, align the menu with the start of the title instead */
+.mobile #app-view #adv-search-area .results-title .heading-actions {
+	inset-inline-start: 0;
+}
+
+.mobile #app-view #adv-search-area .results-title .heading-actions::after {
+	display: none;
+}
+
 #adv-search-area select {
 	scrollbar-width: thin;
 }
