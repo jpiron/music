@@ -2339,3 +2339,114 @@ msgstr "{{artist}} apparaît sur les albums"
 #~ msgstr ""
 #~ "Utilisez votre nom d'utilisateur et le mot de passe suivant pour vous "
 #~ "connecter à cette instance d'Ampache : "
+
+#: templates/partials/navigation.php
+#: templates/partials/views/playlistview.php
+msgid "Refresh"
+msgstr "Actualiser"
+
+#: templates/partials/navigation.php
+#: templates/partials/views/playlistview.php
+msgid "Edit criteria"
+msgstr "Modifier les critères"
+
+#: templates/partials/navigation.php
+#: js/app/controllers/navigationcontroller.js
+msgid "Convert to normal playlist"
+msgstr "Convertir en liste de lecture normale"
+
+#: js/app/controllers/navigationcontroller.js
+msgid "The playlist \"{{ name }}\" will keep its current tracks but will no longer be updated automatically. Continue?"
+msgstr "La liste de lecture « {{ name }} » conservera ses pistes actuelles mais ne sera plus mise à jour automatiquement. Continuer ?"
+
+#: templates/partials/views/advancedsearchview.php
+msgid "Save as smart playlist"
+msgstr "Enregistrer comme liste de lecture intelligente"
+
+#: js/app/controllers/views/advancedsearchviewcontroller.js
+msgid "Smart playlist {{ datetime }}"
+msgstr "Liste intelligente du {{ datetime }}"
+
+#: templates/partials/views/advancedsearchview.php
+msgid "Editing the criteria of the smart playlist"
+msgstr "Modification des critères de la liste de lecture intelligente"
+
+#: templates/partials/views/advancedsearchview.php
+msgid "Save criteria"
+msgstr "Enregistrer les critères"
+
+#: templates/partials/views/advancedsearchview.php
+msgid "Cancel"
+msgstr "Annuler"
+
+#: js/app/services/playlistservice.ts
+msgid "Failed to create the smart playlist"
+msgstr "Échec de la création de la liste de lecture intelligente"
+
+#: js/app/controllers/views/playlistviewcontroller.js
+msgid "refreshed {{ datetime }}"
+msgstr "actualisée le {{ datetime }}"
+
+#: templates/partials/views/playlistview.php
+msgid "No tracks match the criteria of this smart playlist"
+msgstr "Aucune piste ne correspond aux critères de cette liste de lecture intelligente"
+
+#: templates/partials/sidebar/playlistdetails.php
+msgid "Criteria"
+msgstr "Critères"
+
+#: templates/partials/sidebar/playlistdetails.php
+msgid "Refreshed"
+msgstr "Actualisée"
+
+#: templates/partials/sidebar/playlistdetails.php
+msgid "Auto refresh"
+msgstr "Actualisation"
+
+#: js/app/controllers/sidebar/playlistdetailscontroller.js
+msgid "Default"
+msgstr "Par défaut"
+
+#: js/app/controllers/sidebar/playlistdetailscontroller.js
+msgid "Never (manual only)"
+msgstr "Jamais (manuelle uniquement)"
+
+#: js/app/controllers/sidebar/playlistdetailscontroller.js
+msgid "Every 15 minutes"
+msgstr "Toutes les 15 minutes"
+
+#: js/app/controllers/sidebar/playlistdetailscontroller.js
+msgid "Every hour"
+msgstr "Toutes les heures"
+
+#: js/app/controllers/sidebar/playlistdetailscontroller.js
+msgid "Every 6 hours"
+msgstr "Toutes les 6 heures"
+
+#: js/app/controllers/sidebar/playlistdetailscontroller.js
+msgid "Every day"
+msgstr "Tous les jours"
+
+#: js/app/controllers/sidebar/playlistdetailscontroller.js
+msgid "Every week"
+msgstr "Toutes les semaines"
+
+#: js/app/controllers/sidebar/playlistdetailscontroller.js
+msgid "Every {{ count }} minute"
+msgid_plural "Every {{ count }} minutes"
+msgstr[0] "Chaque minute"
+msgstr[1] "Toutes les {{ count }} minutes"
+
+#: js/app/controllers/sidebar/playlistdetailscontroller.js
+msgid "Matching all rules"
+msgstr "Correspondant à toutes les règles"
+
+#: js/app/controllers/sidebar/playlistdetailscontroller.js
+msgid "Matching any rule"
+msgstr "Correspondant à au moins l'une des règles"
+
+#: js/app/controllers/sidebar/playlistdetailscontroller.js
+msgid "at most {{ count }} track"
+msgid_plural "at most {{ count }} tracks"
+msgstr[0] "{{ count }} piste au maximum"
+msgstr[1] "{{ count }} pistes au maximum"
