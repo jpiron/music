@@ -102,7 +102,7 @@ class AdvSearchController extends Controller {
 			if ($businessLayer !== null) {
 				\assert($this->userId !== null, 'Unexpected error: AdvSearch run with userId === null');
 				$entities = $businessLayer->findAllAdvanced(
-					$conjunction, $rules, $this->userId, self::mapSortBy($order), ($order === 'random') ? $this->random : null, $limit, $offset);
+					$conjunction, $rules, $this->userId, SortBy::fromAdvSearchOrder($order), ($order === 'random') ? $this->random : null, $limit, $offset);
 				$entityIds = ArrayUtil::extractIds($entities);
 				return new JSONResponse([
 					'id'                                          => \md5($entity . \serialize($entityIds)), // use hash => identical results will have identical ID
@@ -132,18 +132,6 @@ class AdvSearchController extends Controller {
 			'track'           => $this->trackBusinessLayer,
 		];
 		return $map[$type] ?? null;
-	}
-
-	private static function mapSortBy(string $order) : int {
-		$map = [
-			'name'        => SortBy::Name,
-			'parent'      => SortBy::Parent,
-			'newest'      => SortBy::Newest,
-			'play_count'  => SortBy::PlayCount,
-			'last_played' => SortBy::LastPlayed,
-			'rating'      => SortBy::Rating,
-		];
-		return $map[$order] ?? SortBy::Name;
 	}
 
 }

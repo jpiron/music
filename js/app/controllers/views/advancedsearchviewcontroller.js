@@ -9,8 +9,8 @@
  */
 
 angular.module('Music').controller('AdvancedSearchViewController', [
-	'$rootScope', '$scope', '$document', 'libraryService', 'playQueueService', '$timeout', 'Restangular', 'gettextCatalog',
-	function ($rootScope, $scope, $document, libraryService, playQueueService, $timeout, Restangular, gettextCatalog) {
+	'$rootScope', '$scope', '$document', '$location', 'libraryService', 'libraryFactory', 'playlistService', 'playQueueService', '$timeout', 'Restangular', 'gettextCatalog',
+	function ($rootScope, $scope, $document, $location, libraryService, libraryFactory, playlistService, playQueueService, $timeout, Restangular, gettextCatalog) {
 
 		const THIS_VIEW_ID = $scope.getCurrentViewId();
 
@@ -83,12 +83,85 @@ angular.module('Music').controller('AdvancedSearchViewController', [
 			],
 		};
 
+		// The smart playlist whose criteria are being edited, if any
+		$scope.editedSmartList = null;
+		const editedSmartListId = $location.search().smartlist;
+
 		// load search rule types from the server
 		$scope.searchRuleTypes = null;
 		Restangular.one('advanced_search/rules').get().then(function(rules) {
 			$scope.searchRuleTypes = rules;
-			$scope.addSearchRule();
+			if (editedSmartListId) {
+				libraryFactory.getPlaylists().then(() => initSmartListEditing(libraryService.getPlaylist(editedSmartListId)));
+			} else {
+				$scope.addSearchRule();
+			}
 		});
+
+		function initSmartListEditing(playlist) {
+			if (!playlist?.smart) {
+				OCA.Music.Dialogs.showNotification(gettextCatalog.getString('Requested entry was not found'));
+				$scope.addSearchRule();
+				return;
+			}
+			$scope.editedSmartList = playlist;
+			const criteria = playlist.smart.criteria;
+			$scope.entityType = 'track';
+			$scope.conjunction = criteria.conjunction;
+			$scope.order = criteria.order;
+			$scope.maxResults = criteria.limit ? String(criteria.limit) : '';
+			$scope.searchRules = _.map(criteria.rules, (rule) => {
+				// the input fields need the values in the same format as they produce
+				const type = $scope.ruleType(rule.rule);
+				let input = rule.input;
+				if (['numeric', 'numeric_limit', 'days', 'numeric_rating', 'playlist'].includes(type)) {
+					input = Number(input);
+				} else if (type == 'date') {
+					input = new Date(input);
+				}
+				return { rule: rule.rule, operator: rule.operator, input: input };
+			});
+			// show the current matches
+			$scope.search();
+		}
+
+		function currentSmartListCriteria() {
+			return {
+				conjunction: $scope.conjunction,
+				order: $scope.order,
+				limit: $scope.maxResults ? Number($scope.maxResults) : null,
+				rules: $scope.searchRules
+			};
+		}
+
+		/** The results can be saved as a smart playlist only when searching for tracks */
+		$scope.smartListSaveable = function() {
+			return $scope.results?.criteria?.entity === 'track';
+		};
+
+		$scope.saveAsSmartList = function() {
+			const criteria = $scope.results.criteria;
+			const name = gettextCatalog.getString('Smart playlist {{ datetime }}', { datetime: OCA.Music.Utils.formatDateTime($scope.results.date) });
+			playlistService.createSmartPlaylist(name, {
+				conjunction: criteria.conjunction,
+				order: criteria.order,
+				limit: criteria.limit,
+				rules: criteria.rules
+			}).then((playlist) => {
+				$timeout(() => $scope.navigateTo(`#playlist/${playlist.id}`));
+			});
+		};
+
+		$scope.saveSmartListCriteria = function() {
+			const playlist = $scope.editedSmartList;
+			playlistService.updateSmartPlaylist(playlist, currentSmartListCriteria()).then(() => {
+				$timeout(() => $scope.navigateTo(`#/playlist/${playlist.id}`));
+			});
+		};
+
+		$scope.cancelSmartListEditing = function() {
+			$scope.navigateTo(`#/playlist/${$scope.editedSmartList.id}`);
+		};
 
 		$scope.searchRuleOperators = {
 			text: [

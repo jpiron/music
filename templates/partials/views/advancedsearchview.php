@@ -1,11 +1,15 @@
 <div class="view-container" id="adv-search-area">
 	<h1 translate>Advanced search</h1>
 
+	<div id="adv-search-smartlist-editing" ng-if="editedSmartList">
+		<span translate>Editing the criteria of the smart playlist</span> <strong>{{ editedSmartList.name }}</strong>
+	</div>
+
 	<div id="adv-search-controls">
 		<div id="adv-search-common-parameters">
 			<div>
 				<label for="adv-search-type" translate>Search for</label>
-				<select id="adv-search-type" ng-model="entityType" ng-change="onEntityTypeChanged()">
+				<select id="adv-search-type" ng-model="entityType" ng-change="onEntityTypeChanged()" ng-disabled="editedSmartList">
 					<option value="track" translate>tracks</option>
 					<option value="album" translate>albums</option>
 					<option value="artist" translate>artists</option>
@@ -69,7 +73,10 @@
 				<a class="icon icon-add"></a>
 			</div>
 		</div>
-		<button ng-click="search()" translate>Search</button><span style="color:red" ng-show="errorDescription">{{ errorDescription }}</span>
+		<button ng-click="search()" translate>Search</button>
+		<button ng-if="editedSmartList" class="primary" ng-click="saveSmartListCriteria()" translate>Save criteria</button>
+		<button ng-if="editedSmartList" ng-click="cancelSmartListEditing()" translate>Cancel</button>
+		<span style="color:red" ng-show="errorDescription">{{ errorDescription }}</span>
 	</div>
 
 	<div ng-if="results" class="flat-list-view playlist-area">
@@ -84,6 +91,7 @@
 			<div class="popovermenu bubble heading-actions" ng-show="showResultsMenu">
 				<ul>
 					<li><a ng-click="saveResults()"><span class="icon icon-playlist svg"></span><span translate>Save playlist</span></a></li>
+					<li ng-if="smartListSaveable() && !editedSmartList"><a ng-click="saveAsSmartList()"><span class="icon icon-smart-playlist svg"></span><span translate>Save as smart playlist</span></a></li>
 				</ul>
 			</div>
 		</h2>

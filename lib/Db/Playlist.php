@@ -39,6 +39,8 @@ class Playlist extends Entity {
 	// injected separately when needed
 	private ?int $duration = null;
 	private bool $readOnly = false;
+	private ?SmartList $smartList = null;
+	private ?string $smartListValidUntil = null;
 
 	public function __construct() {
 		$this->addType('rating', 'int');
@@ -58,6 +60,24 @@ class Playlist extends Entity {
 
 	public function setReadOnly(bool $readOnly) : void {
 		$this->readOnly = $readOnly;
+	}
+
+	public function getSmartList() : ?SmartList {
+		return $this->smartList;
+	}
+
+	/**
+	 * Mark this playlist as a smart playlist. The content of a smart playlist can't be modified by the user.
+	 * @param ?string $validUntil Time until which the current content is considered fresh, null if not refreshed automatically
+	 */
+	public function setSmartList(?SmartList $smartList, ?string $validUntil = null) : void {
+		$this->smartList = $smartList;
+		$this->smartListValidUntil = $validUntil;
+		$this->readOnly = ($smartList !== null);
+	}
+
+	public function isSmart() : bool {
+		return $this->smartList !== null;
 	}
 
 	public function getTrackCount() : int {
@@ -96,8 +116,22 @@ class Playlist extends Entity {
 			'created'  => $this->getCreated(),
 			'updated'  => $this->getUpdated(),
 			'comment'  => $this->getComment(),
-			'cover'    => $this->getCoverUrl($urlGenerator)
+			'cover'    => $this->getCoverUrl($urlGenerator),
+			'smart'    => $this->smartListToApi()
 		];
+	}
+
+	private function smartListToApi() : ?array {
+		if ($this->smartList === null) {
+			return null;
+		} else {
+			return [
+				'criteria'        => $this->smartList->getCriteriaArray(),
+				'refreshInterval' => $this->smartList->getRefreshInterval(),
+				'refreshed'       => $this->smartList->getRefreshed(),
+				'validUntil'      => $this->smartListValidUntil
+			];
+		}
 	}
 
 	public function toShivaApi(IURLGenerator $urlGenerator) : array {
@@ -149,7 +183,7 @@ class Playlist extends Entity {
 	}
 
 	public function toSubsonicApi() : array {
-		return [
+		$result = [
 			'id'        => (string)$this->getId(),
 			'name'      => $this->getName(),
 			'owner'     => $this->userId,
@@ -161,6 +195,16 @@ class Playlist extends Entity {
 			'changed'   => Util::formatZuluDateTime($this->getUpdated()),
 			'coverArt'  => 'pl-' . $this->getId() // work around: DSub always fetches the art using ID like "pl-NNN" even if we would use some other format here
 		];
+
+		// OpenSubsonic extensions for server-generated playlists
+		if ($this->smartList !== null) {
+			$result['readonly'] = true;
+			if ($this->smartListValidUntil !== null) {
+				$result['validUntil'] = Util::formatZuluDateTime($this->smartListValidUntil);
+			}
+		}
+
+		return $result;
 	}
 
 	private function isEmpty() : bool {

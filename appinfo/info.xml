@@ -45,6 +45,7 @@
 	<background-jobs>
 		<job>OCA\Music\BackgroundJob\Cleanup</job>
 		<job>OCA\Music\BackgroundJob\PodcastUpdateCheck</job>
+		<job>OCA\Music\BackgroundJob\SmartListRefresh</job>
 	</background-jobs>
 	<repair-steps>
 		<pre-migration>

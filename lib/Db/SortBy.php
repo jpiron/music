@@ -23,4 +23,20 @@ abstract class SortBy {
 	public const PlayCount = 4;
 	public const LastPlayed = 5;
 	public const Rating = 6;
+
+	/**
+	 * Map the ordering names used by the advanced search API to the sort orders. The name 'random'
+	 * is not mapped here as random ordering is handled separately from the DB sorting.
+	 */
+	public static function fromAdvSearchOrder(string $order) : int {
+		$map = [
+			'name'        => SortBy::Name,
+			'parent'      => SortBy::Parent,
+			'newest'      => SortBy::Newest,
+			'play_count'  => SortBy::PlayCount,
+			'last_played' => SortBy::LastPlayed,
+			'rating'      => SortBy::Rating,
+		];
+		return $map[$order] ?? SortBy::Name;
+	}
 }

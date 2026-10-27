@@ -72,19 +72,22 @@ HtmlUtil::printNgTemplate('navigationitem');
 			drop-validate="allowDrop(playlist, $data)"
 			drag-hover-class="drag-hover"
 			title="{{ playlist.name + ' (' + trackCountText(playlist) + ')' }}"
-			icon="'playlist'"
+			icon="playlist.smart ? 'smart-playlist' : 'playlist'"
 		>
 			<popup-menu ng-init="subMenuShown = false" ng-show="showEditForm == null" busy="playlist.busy">
 				<popup-menu-item ng-click="showDetails(playlist);" platform-icon="'details'">{{ 'Details' | translate }}</popup-menu-item>
 				<popup-menu-item ng-click="startEdit(playlist);" platform-icon="'rename'">{{ 'Rename' | translate }}</popup-menu-item>
-				<popup-menu-item ng-click="importFromFile(playlist);" icon="'from-file'">{{ 'Import from file' | translate }}</popup-menu-item>
+				<popup-menu-item ng-if="playlist.smart" ng-click="refreshSmartPlaylist(playlist);" icon="'reload'">{{ 'Refresh' | translate }}</popup-menu-item>
+				<popup-menu-item ng-if="playlist.smart" ng-click="editSmartPlaylist(playlist);" icon="'filter'">{{ 'Edit criteria' | translate }}</popup-menu-item>
+				<popup-menu-item ng-if="playlist.smart" ng-click="convertToStaticPlaylist(playlist);" icon="'playlist'">{{ 'Convert to normal playlist' | translate }}</popup-menu-item>
+				<popup-menu-item ng-if="!playlist.smart" ng-click="importFromFile(playlist);" icon="'from-file'">{{ 'Import from file' | translate }}</popup-menu-item>
 				<popup-menu-item ng-click="exportToFile(playlist);" icon="'to-file'">{{ 'Export to file' | translate }}</popup-menu-item>
-				<popup-sub-menu icon="'sort-by-alpha'" text="'Sort…' | translate">
+				<popup-sub-menu ng-if="!playlist.smart" icon="'sort-by-alpha'" text="'Sort…' | translate">
 					<popup-menu-item ng-click="sortPlaylist(playlist, 'track');">{{ 'by title' | translate }}</popup-menu-item>
 					<popup-menu-item ng-click="sortPlaylist(playlist, 'artist');">{{ 'by artist' | translate }}</popup-menu-item>
 					<popup-menu-item ng-click="sortPlaylist(playlist, 'album');">{{ 'by album' | translate }}</popup-menu-item>
 				</popup-sub-menu>
-				<popup-menu-item ng-click="removeDuplicates(playlist);" platform-icon="'close'">{{ 'Remove duplicates' | translate }}</popup-menu-item>
+				<popup-menu-item ng-if="!playlist.smart" ng-click="removeDuplicates(playlist);" platform-icon="'close'">{{ 'Remove duplicates' | translate }}</popup-menu-item>
 				<popup-menu-item ng-click="remove(playlist);" platform-icon="'delete'">{{ 'Delete' | translate }}</popup-menu-item>
 			</popup-menu>
 		</li>

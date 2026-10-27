@@ -63,6 +63,26 @@ export interface PlaylistEntry<T extends BaseTrack> {
 	index : number;
 }
 
+export interface SmartListRule {
+	rule : string;
+	operator : string;
+	input : string;
+}
+
+export interface SmartListCriteria {
+	conjunction : string;
+	order : string;
+	limit : number|null;
+	rules : SmartListRule[];
+}
+
+export interface SmartListInfo {
+	criteria : SmartListCriteria;
+	refreshInterval : number|null; // minutes, 0 for manual refresh only, null for the default interval
+	refreshed : string|null;
+	validUntil : string|null;
+}
+
 export interface Playlist {
 	id : number;
 	name : string;
@@ -70,6 +90,8 @@ export interface Playlist {
 	tracks : PlaylistEntry<Track>[];
 	created : string;
 	updated : string;
+	comment? : string;
+	smart? : SmartListInfo|null;
 	busy? : boolean;
 }
 
@@ -623,10 +645,13 @@ export class LibraryService {
 	removePlaylist(playlist : any) : void {
 		this.#playlists.splice(this.#playlists.indexOf(playlist), 1);
 	}
-	replacePlaylist(playlist : any) : void {
+	replacePlaylist(playlist : any) : Playlist {
 		let idx = _.findIndex(this.#playlists, { id: playlist.id });
-		this.#playlists[idx] = this.#wrapPlaylist(playlist);
+		let wrapped = this.#wrapPlaylist(playlist);
+		wrapped.favorite = this.#playlists[idx]?.favorite ?? false;
+		this.#playlists[idx] = wrapped;
 		this.#publish('playlistUpdated', playlist.id, /*onlyReorder=*/false);
+		return wrapped;
 	}
 	addToPlaylist(playlistId : number, trackId : number) : void {
 		let playlist = this.getPlaylist(playlistId);

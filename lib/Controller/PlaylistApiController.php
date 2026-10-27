@@ -15,6 +15,7 @@
 namespace OCA\Music\Controller;
 
 use OCA\Music\AppFramework\BusinessLayer\BusinessLayerException;
+use OCA\Music\AppFramework\BusinessLayer\ReadOnlyException;
 use OCA\Music\AppFramework\Core\Logger;
 use OCA\Music\AppFramework\Utility\FileExistsException;
 use OCA\Music\BusinessLayer\AlbumBusinessLayer;
@@ -27,6 +28,7 @@ use OCA\Music\Http\ErrorResponse;
 use OCA\Music\Http\FileResponse;
 use OCA\Music\Service\CoverService;
 use OCA\Music\Service\PlaylistFileService;
+use OCA\Music\Service\SmartListService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -55,6 +57,7 @@ class PlaylistApiController extends Controller {
 		private GenreBusinessLayer $genreBusinessLayer,
 		private CoverService $coverService,
 		private PlaylistFileService $playlistFileService,
+		private SmartListService $smartListService,
 		private string $userId,
 		private IConfig $configManager,
 		private Logger $logger,
@@ -70,6 +73,7 @@ class PlaylistApiController extends Controller {
 	#[NoCSRFRequired]
 	public function getAll(string $type = 'shiva') : JSONResponse {
 		$playlists = $this->playlistBusinessLayer->findAll($this->userId);
+		$this->smartListService->injectSmartLists($playlists, $this->userId);
 		$result = ($type === 'shiva')
 			? \array_map(fn ($p) => $p->toShivaApi($this->urlGenerator), $playlists)
 			: \array_map(fn ($p) => $p->toApi($this->urlGenerator), $playlists);
@@ -116,6 +120,7 @@ class PlaylistApiController extends Controller {
 	public function get(int $id, string $type = 'shiva', string|int|bool|null $fulltree = 'false') : JSONResponse {
 		try {
 			$playlist = $this->playlistBusinessLayer->find($id, $this->userId);
+			$this->smartListService->injectSmartListToPlaylist($playlist, $this->userId);
 
 			if ($type === 'shiva') {
 				$result = $playlist->toShivaApi($this->urlGenerator);
@@ -200,6 +205,76 @@ class PlaylistApiController extends Controller {
 		];
 
 		return new JSONResponse($result);
+	}
+
+	/**
+	 * create a smart playlist which content is defined by the given advanced search criteria on tracks
+	 * @param string $criteria JSON-encoded object with the keys 'conjunction', 'order', 'limit', and 'rules'
+	 *                         with the same semantics as in the advanced search API
+	 * @param string|int|null $refreshInterval Refresh interval in minutes, 0 for manual refresh only, omit to use the default
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	public function createSmart(?string $name, ?string $criteria, string|int|null $refreshInterval = null) : JSONResponse {
+		try {
+			$playlist = $this->smartListService->create(
+					$name ?? '', self::decodeCriteria($criteria) ?? [], self::toNullableInt($refreshInterval), $this->userId);
+			return new JSONResponse($playlist->toApi($this->urlGenerator));
+		} catch (\InvalidArgumentException $ex) {
+			return new ErrorResponse(Http::STATUS_BAD_REQUEST, $ex->getMessage());
+		}
+	}
+
+	/**
+	 * change the criteria and/or the refresh interval of a smart playlist
+	 * @param int $id playlist ID
+	 * @param ?string $criteria JSON-encoded criteria like in createSmart, omit to keep the current criteria
+	 * @param string|int|null $refreshInterval Refresh interval in minutes, 0 for manual refresh only, 'default' to use
+	 *                                         the default interval, omit to keep the current setting
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	public function updateSmart(int $id, ?string $criteria = null, string|int|null $refreshInterval = null) : JSONResponse {
+		try {
+			$playlist = $this->smartListService->update(
+					$id, $this->userId, self::decodeCriteria($criteria),
+					$refreshInterval !== null, self::toNullableInt($refreshInterval));
+			return new JSONResponse($playlist->toApi($this->urlGenerator));
+		} catch (BusinessLayerException $ex) {
+			return new ErrorResponse(Http::STATUS_NOT_FOUND, $ex->getMessage());
+		} catch (\InvalidArgumentException $ex) {
+			return new ErrorResponse(Http::STATUS_BAD_REQUEST, $ex->getMessage());
+		}
+	}
+
+	/**
+	 * convert a smart playlist to a normal playlist, keeping its current content
+	 * @param int $id playlist ID
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	public function convertToStatic(int $id) : JSONResponse {
+		try {
+			$playlist = $this->smartListService->convertToStatic($id, $this->userId);
+			return new JSONResponse($playlist->toApi($this->urlGenerator));
+		} catch (BusinessLayerException $ex) {
+			return new ErrorResponse(Http::STATUS_NOT_FOUND, $ex->getMessage());
+		}
+	}
+
+	/**
+	 * refresh the content of a smart playlist
+	 * @param int $id playlist ID
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	public function refresh(int $id) : JSONResponse {
+		try {
+			$playlist = $this->smartListService->refreshById($id, $this->userId);
+			return new JSONResponse($playlist->toApi($this->urlGenerator));
+		} catch (BusinessLayerException $ex) {
+			return new ErrorResponse(Http::STATUS_NOT_FOUND, $ex->getMessage());
+		}
 	}
 
 	/**
@@ -388,7 +463,10 @@ class PlaylistApiController extends Controller {
 	private function modifyPlaylist(string $funcName, array $funcParams) : JSONResponse {
 		try {
 			$playlist = \call_user_func_array([$this->playlistBusinessLayer, $funcName], $funcParams);
+			$this->smartListService->injectSmartListToPlaylist($playlist, $this->userId, /*refreshStale=*/false);
 			return new JSONResponse($playlist->toApi($this->urlGenerator));
+		} catch (ReadOnlyException $ex) {
+			return new ErrorResponse(Http::STATUS_FORBIDDEN, $ex->getMessage());
 		} catch (BusinessLayerException $ex) {
 			return new ErrorResponse(Http::STATUS_NOT_FOUND, $ex->getMessage());
 		}
@@ -404,6 +482,29 @@ class PlaylistApiController extends Controller {
 			return [];
 		} else {
 			return \array_map('intval', \explode(',', (string)$listAsString));
+		}
+	}
+
+	/**
+	 * Get an integer passed as parameter, treating anything else than a number (like 'default') as null
+	 */
+	private static function toNullableInt(string|int|null $value) : ?int {
+		return \is_numeric($value) ? (int)$value : null;
+	}
+
+	/**
+	 * Decode JSON-encoded smart list criteria
+	 * @throws \InvalidArgumentException if the criteria are not a valid JSON object
+	 */
+	private static function decodeCriteria(?string $criteria) : ?array {
+		if ($criteria === null) {
+			return null;
+		} else {
+			$decoded = \json_decode($criteria, true);
+			if (!\is_array($decoded)) {
+				throw new \InvalidArgumentException('Invalid criteria');
+			}
+			return $decoded;
 		}
 	}
 }
