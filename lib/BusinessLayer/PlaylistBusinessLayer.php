@@ -13,10 +13,12 @@
 namespace OCA\Music\BusinessLayer;
 
 use OCA\Music\AppFramework\BusinessLayer\BusinessLayer;
+use OCA\Music\AppFramework\BusinessLayer\ReadOnlyException;
 use OCA\Music\AppFramework\Core\Logger;
 use OCA\Music\Db\MatchMode;
 use OCA\Music\Db\Playlist;
 use OCA\Music\Db\PlaylistMapper;
+use OCA\Music\Db\SmartListMapper;
 use OCA\Music\Db\SortBy;
 use OCA\Music\Db\Track;
 use OCA\Music\Db\TrackMapper;
@@ -37,20 +39,59 @@ class PlaylistBusinessLayer extends BusinessLayer {
 	public function __construct(
 		PlaylistMapper $playlistMapper,
 		private TrackMapper $trackMapper,
+		private SmartListMapper $smartListMapper,
 		private Logger $logger,
 	) {
 		parent::__construct($playlistMapper);
 	}
 
-	public function setTracks(array $trackIds, int $playlistId, string $userId) : Playlist {
+	/**
+	 * Delete the playlist and its smart playlist definition, if any
+	 */
+	public function delete(int $id, string $userId) : Playlist {
+		$playlist = parent::delete($id, $userId);
+		$this->smartListMapper->deleteByPlaylistId($id, $userId);
+		return $playlist;
+	}
+
+	/**
+	 * Find a playlist for modifying its content
+	 * @throws ReadOnlyException if the playlist is a smart playlist which content is managed by the server
+	 */
+	private function findModifiable(int $playlistId, string $userId) : Playlist {
 		$playlist = $this->find($playlistId, $userId);
+		if ($this->smartListMapper->existsForPlaylist($playlistId)) {
+			throw new ReadOnlyException("The content of the smart playlist $playlistId can't be modified");
+		}
+		return $playlist;
+	}
+
+	public function setTracks(array $trackIds, int $playlistId, string $userId) : Playlist {
+		$playlist = $this->findModifiable($playlistId, $userId);
 		$playlist->setTrackIdsFromArray($trackIds);
 		$this->mapper->update($playlist);
 		return $playlist;
 	}
 
+	/**
+	 * Set the content of a smart playlist. Unlike the other modifying functions, this works only on smart playlists.
+	 * The playlist is updated in the DB only if the content actually changes, so that the modification time
+	 * of the playlist tells when the content has last changed.
+	 * @return bool true if the content changed
+	 */
+	public function setSmartListTracks(array $trackIds, Playlist $playlist) : bool {
+		$prevTrackIds = $playlist->getTrackIdsAsArray();
+		if ($prevTrackIds === $trackIds) {
+			return false;
+		} else {
+			$playlist->setTrackIdsFromArray($trackIds);
+			$this->mapper->update($playlist);
+			return true;
+		}
+	}
+
 	public function addTracks(array $trackIds, int $playlistId, string $userId, ?int $insertIndex = null) : Playlist {
-		$playlist = $this->find($playlistId, $userId);
+		$playlist = $this->findModifiable($playlistId, $userId);
 		$allTrackIds = $playlist->getTrackIdsAsArray();
 		if ($insertIndex === null) {
 			$allTrackIds = \array_merge($allTrackIds, $trackIds);
@@ -63,7 +104,7 @@ class PlaylistBusinessLayer extends BusinessLayer {
 	}
 
 	public function removeTracks(array $trackIndices, int $playlistId, string $userId) : Playlist {
-		$playlist = $this->find($playlistId, $userId);
+		$playlist = $this->findModifiable($playlistId, $userId);
 		$trackIds = $playlist->getTrackIdsAsArray();
 		$trackIds = \array_diff_key($trackIds, \array_flip($trackIndices));
 		$playlist->setTrackIdsFromArray($trackIds);
@@ -72,14 +113,14 @@ class PlaylistBusinessLayer extends BusinessLayer {
 	}
 
 	public function removeAllTracks(int $playlistId, string $userId) : Playlist {
-		$playlist = $this->find($playlistId, $userId);
+		$playlist = $this->findModifiable($playlistId, $userId);
 		$playlist->setTrackIdsFromArray([]);
 		$this->mapper->update($playlist);
 		return $playlist;
 	}
 
 	public function moveTrack(int $fromIndex, int $toIndex, int $playlistId, string $userId) : Playlist {
-		$playlist = $this->find($playlistId, $userId);
+		$playlist = $this->findModifiable($playlistId, $userId);
 		$trackIds = $playlist->getTrackIdsAsArray();
 		$movedTrack = \array_splice($trackIds, $fromIndex, 1);
 		\array_splice($trackIds, $toIndex, 0, $movedTrack);

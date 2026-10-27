@@ -46,6 +46,7 @@ use OCA\Music\Service\LastfmService;
 use OCA\Music\Service\LibrarySettings;
 use OCA\Music\Service\PodcastService;
 use OCA\Music\Service\Scrobbling\IScrobbler;
+use OCA\Music\Service\SmartListService;
 use OCA\Music\Utility\AppInfo;
 use OCA\Music\Utility\ArrayUtil;
 use OCA\Music\Utility\Concurrency;
@@ -104,6 +105,7 @@ class SubsonicController extends ApiController {
 		private DetailsService $detailsService,
 		private LastfmService $lastfmService,
 		private PodcastService $podcastService,
+		private SmartListService $smartListService,
 		private AmpacheImageService $imageService,
 		private Random $random,
 		private Logger $logger,
@@ -526,6 +528,7 @@ class SubsonicController extends ApiController {
 	protected function getPlaylists() : array {
 		$userId = $this->user();
 		$playlists = $this->playlistBusinessLayer->findAll($userId);
+		$this->smartListService->injectSmartLists($playlists, $userId);
 
 		foreach ($playlists as $playlist) {
 			$playlist->setDuration($this->playlistBusinessLayer->getDuration($playlist->getId(), $userId));
@@ -540,6 +543,7 @@ class SubsonicController extends ApiController {
 	protected function getPlaylist(int $id) : array {
 		$userId = $this->user();
 		$playlist = $this->playlistBusinessLayer->find($id, $userId);
+		$this->smartListService->injectSmartListToPlaylist($playlist, $userId);
 		$tracks = $this->playlistBusinessLayer->getPlaylistTracks($id, $userId);
 		$playlist->setDuration(\array_reduce($tracks, function (?int $accuDuration, Track $track) : int {
 			return (int)$accuDuration + (int)$track->getLength();

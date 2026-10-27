@@ -12,8 +12,8 @@
 
 
 angular.module('Music').controller('PlaylistViewController', [
-	'$rootScope', '$scope', '$routeParams', 'playQueueService', 'libraryService', 'libraryFactory', 'gettextCatalog', 'Restangular', '$timeout',
-	function ($rootScope, $scope, $routeParams, playQueueService, libraryService, libraryFactory, gettextCatalog, Restangular, $timeout) {
+	'$rootScope', '$scope', '$routeParams', 'playQueueService', 'playlistService', 'libraryService', 'libraryFactory', 'gettextCatalog', 'Restangular', '$timeout',
+	function ($rootScope, $scope, $routeParams, playQueueService, playlistService, libraryService, libraryFactory, gettextCatalog, Restangular, $timeout) {
 
 		const THIS_VIEW_ID = $scope.getCurrentViewId();
 
@@ -108,7 +108,20 @@ angular.module('Music').controller('PlaylistViewController', [
 		};
 
 		$scope.allowDrop = function(draggable, dstIndex) {
-			return ('srcIndex' in draggable) && (draggable.srcIndex != dstIndex);
+			// the content of a smart playlist is defined by its criteria and can't be reordered
+			return !$scope.playlist.smart && ('srcIndex' in draggable) && (draggable.srcIndex != dstIndex);
+		};
+
+		$scope.smartRefreshedText = function() {
+			return gettextCatalog.getString('refreshed {{ datetime }}', { datetime: OCA.Music.Utils.formatDateTime($scope.playlist.smart.refreshed) });
+		};
+
+		$scope.refreshSmartPlaylist = function() {
+			playlistService.refreshSmartPlaylist($scope.playlist);
+		};
+
+		$scope.editSmartPlaylist = function() {
+			$scope.navigateTo(`#/search?smartlist=${$scope.playlist.id}`);
 		};
 
 		$scope.updateHoverStyle = function(dstIndex) {

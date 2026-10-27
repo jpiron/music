@@ -12,12 +12,34 @@ import * as ng from 'angular';
 import { gettextCatalog } from 'angular-gettext';
 import { IService } from 'restangular';
 import { MusicRootScope } from 'app/config/musicrootscope';
-import { LibraryService, Playlist } from './libraryservice';
+import { LibraryService, Playlist, SmartListCriteria } from './libraryservice';
 import { PlayQueue } from 'shared/playqueue';
 
 ng.module('Music').service('playlistService', [
 '$rootScope', 'libraryService', 'playQueueService', 'gettextCatalog', 'Restangular', '$q',
 function($rootScope : MusicRootScope, libraryService : LibraryService, playQueueService : PlayQueue, gettextCatalog : gettextCatalog, Restangular : IService, $q : ng.IQService) {
+
+	function errorDetails(error : any) : string {
+		const message = error?.data?.message;
+		return message ? `: ${message}` : '';
+	}
+
+	/**
+	 * Handle the response of a request modifying a smart playlist. The response contains the whole updated playlist
+	 * which replaces the old instance in the library service.
+	 */
+	function modifySmartPlaylist(playlist : Playlist, request : ng.IPromise<any>) : ng.IPromise<Playlist> {
+		playlist.busy = true;
+		return request.then((result) => {
+			playlist.busy = false;
+			// If the list is currently playing, the play queue keeps playing the previous content
+			return libraryService.replacePlaylist(result);
+		}, (error) => {
+			playlist.busy = false;
+			OCA.Music.Dialogs.showNotification(gettextCatalog.getString('Failed to update the playlist') + errorDetails(error));
+			return $q.reject();
+		});
+	}
 
 	return {
 
@@ -83,6 +105,44 @@ function($rootScope : MusicRootScope, libraryService : LibraryService, playQueue
 				OCA.Music.Dialogs.showNotification(gettextCatalog.getString('Failed to add tracks to the playlist'));
 				return $q.reject();
 			});
+		},
+
+		createSmartPlaylist(name : string, criteria : SmartListCriteria) : ng.IPromise<Playlist> {
+			const args = {
+				name: name,
+				criteria: ng.toJson(criteria)
+			};
+			return Restangular.all('playlists/smart').post(args).then(
+				(playlist : any) => libraryService.addPlaylist(playlist),
+				(error) => {
+					OCA.Music.Dialogs.showNotification(
+						gettextCatalog.getString('Failed to create the smart playlist') + errorDetails(error));
+					return $q.reject();
+				}
+			);
+		},
+
+		/**
+		 * Change the criteria and/or the refresh interval of a smart playlist. The refresh interval may be given
+		 * in minutes, as 0 for manual refresh only, or as 'default'.
+		 */
+		updateSmartPlaylist(playlist : Playlist, criteria : SmartListCriteria|null, refreshInterval : number|'default'|null = null) : ng.IPromise<Playlist> {
+			const args : Record<string, string|number> = {};
+			if (criteria !== null) {
+				args.criteria = ng.toJson(criteria);
+			}
+			if (refreshInterval !== null) {
+				args.refreshInterval = refreshInterval;
+			}
+			return modifySmartPlaylist(playlist, Restangular.one('playlists', playlist.id).one('smart').customPUT(args));
+		},
+
+		refreshSmartPlaylist(playlist : Playlist) : ng.IPromise<Playlist> {
+			return modifySmartPlaylist(playlist, Restangular.one('playlists', playlist.id).all('refresh').post({}));
+		},
+
+		convertToStaticPlaylist(playlist : Playlist) : ng.IPromise<Playlist> {
+			return modifySmartPlaylist(playlist, Restangular.one('playlists', playlist.id).one('smart').remove());
 		},
 
 		deletePlaylist(playlist : Playlist) : ng.IPromise<void> {

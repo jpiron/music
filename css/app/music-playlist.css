@@ -145,3 +145,19 @@
 #radio-view .track-list > li > div {
 	max-width: calc(100% - 72px); /* more space needs to be reserved as there are two action icons instead of just one */
 }
+
+#smart-playlist-info {
+	margin: -8px 14px 8px;
+}
+
+#smart-playlist-info a {
+	margin-inline-start: 8px;
+	text-decoration: underline;
+	white-space: nowrap;
+}
+
+#smart-playlist-info .icon-loading-small {
+	display: inline-block;
+	vertical-align: middle;
+	margin-inline-start: 8px;
+}
